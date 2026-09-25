@@ -171,6 +171,7 @@ def demo_vague_vs_precise(chart: Path) -> None:
 
 def demo_detail_levels(receipt: Path) -> None:
     banner("2. detail='low' vs detail='high' on small text")
+    tokens_used = {}
     for detail in ("low", "high"):
         raw, tokens = ask_images(
             "Transcribe every line item, the subtotal and the total from this receipt.",
@@ -178,6 +179,7 @@ def demo_detail_levels(receipt: Path) -> None:
             detail=detail,
             response_format=Receipt,
         )
+        tokens_used[detail] = tokens
         receipt_data = Receipt.model_validate_json(raw)
         matched = sum(
             any(name.lower() in ln.item.lower() and abs(ln.amount - q * p) < 0.01 for ln in receipt_data.lines)
@@ -187,6 +189,9 @@ def demo_detail_levels(receipt: Path) -> None:
         print(f"  line items correct: {matched}/{len(RECEIPT_ITEMS)}")
         print(f"  total read: {receipt_data.total}  expected: {TOTAL}  "
               f"{'OK' if abs(receipt_data.total - TOTAL) < 0.01 else 'WRONG'}")
+    if tokens_used["low"] == tokens_used["high"]:
+        print(f"\nSame token count for both: {VISION_MODEL} (or the proxy in front of it) "
+              "ignores `detail`. Check the cost of images on your own stack; don't assume it.")
     # 'low' shrinks the image to about 512px: cheap and fast, but small text blurs.
     # Use 'high' for documents, receipts and screenshots. 'low' is fine for "is there a cat?".
 

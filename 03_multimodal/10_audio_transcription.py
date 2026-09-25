@@ -43,6 +43,9 @@ MEETING_CHUNKS = [
 ]
 # Names and jargon that a general speech model has never seen.
 KEY_TERMS = ["Qlaro", "PgBouncer", "Zephyrine", "Anjali", "Rohit"]
+# Whisper's `prompt` is a text hint that biases spelling and style. It is NOT
+# an instruction, so write it like a sample of the expected transcript.
+GLOSSARY = "Meeting notes. Attendees: Anjali, Rohit. Topics: Qlaro launch, PgBouncer, Zephyrine dashboard."
 
 
 class ActionItem(BaseModel):
@@ -60,6 +63,17 @@ class MeetingNotes(BaseModel):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+def credentials(model: str) -> dict:
+    """Key and base URL LiteLLM resolves for this model (e.g. LITELLM_PROXY_API_KEY).
+
+    litellm.speech() only looks for OPENAI_API_KEY, even for litellm_proxy/
+    models, so pass them explicitly. For direct providers both are None and
+    LiteLLM falls back to its usual env vars.
+    """
+    _, _, api_key, api_base = litellm.get_llm_provider(model)
+    return {"api_key": api_key, "api_base": api_base}
+
+
 def make_sample_audio() -> list[Path]:
     """Generate the meeting chunks with TTS, once."""
     SAMPLES.mkdir(exist_ok=True)
@@ -68,7 +82,7 @@ def make_sample_audio() -> list[Path]:
         path = SAMPLES / f"meeting_part{i}.mp3"
         if not path.exists():
             print(f"Generating {path.name} with {TTS_MODEL}...")
-            audio = litellm.speech(model=TTS_MODEL, input=text, voice="alloy")
+            audio = litellm.speech(model=TTS_MODEL, input=text, voice="alloy", **credentials(TTS_MODEL))
             path.write_bytes(audio.content)
         paths.append(path)
     return paths
@@ -76,7 +90,7 @@ def make_sample_audio() -> list[Path]:
 
 def transcribe(path: Path, **kwargs):
     with open(path, "rb") as f:
-        return litellm.transcription(model=AUDIO_MODEL, file=f, **kwargs)
+        return litellm.transcription(model=AUDIO_MODEL, file=f, **credentials(AUDIO_MODEL), **kwargs)
 
 
 def term_score(text: str) -> str:
@@ -99,10 +113,7 @@ def demo_plain_vs_prompted(clip: Path) -> None:
     show("Plain", plain)
     print(term_score(plain))
 
-    # Whisper's `prompt` is a text hint that biases spelling and style. It is
-    # NOT an instruction, so write it like a sample of the expected transcript.
-    hint = "Meeting notes. Attendees: Anjali, Rohit. Topics: Qlaro launch, PgBouncer, Zephyrine dashboard."
-    hinted = transcribe(clip, prompt=hint).text
+    hinted = transcribe(clip, prompt=GLOSSARY).text
     show("With vocabulary prompt", hinted)
     print(term_score(hinted))
     # Product names and people's names are what users notice first. A glossary
@@ -132,12 +143,12 @@ def demo_chunked(clips: list[Path]) -> str:
     # APIs cap uploads (about 25 MB for OpenAI). Real pipelines split long audio
     # with ffmpeg/pydub, ideally at silences so no word is cut in half.
     # Passing the end of the previous chunk as the prompt keeps names and
-    # style consistent across chunk boundaries.
+    # style consistent across chunk boundaries. It also carries mistakes
+    # forward, so keep the glossary in front of it.
     parts: list[str] = []
     for clip in clips:
         context = " ".join(parts)[-200:]  # tail of the transcript so far
-        hint = f"Qlaro, PgBouncer, Zephyrine, Anjali, Rohit. {context}"
-        parts.append(transcribe(clip, prompt=hint).text.strip())
+        parts.append(transcribe(clip, prompt=f"{GLOSSARY} {context}").text.strip())
         print(f"  {clip.name}: {len(parts[-1])} chars")
     transcript = " ".join(parts)
     show("Full transcript", transcript)
