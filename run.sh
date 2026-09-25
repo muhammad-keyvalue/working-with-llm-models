@@ -4,7 +4,7 @@
 # Usage:
 #   ./run.sh                                         # list programs
 #   ./run.sh 01_prompt_engineering/01_instruction_context_query.py
-#   ./run.sh 1                                       # same, by number (1-8)
+#   ./run.sh 1                                       # same, by number (1-11)
 #   ./run.sh 5 injection                             # extra args are passed through
 set -euo pipefail
 
@@ -19,6 +19,9 @@ PROGRAMS=(
   02_structured_outputs/06_json_mode_and_schema.py
   02_structured_outputs/07_function_calling.py
   02_structured_outputs/08_parse_and_validate.py
+  03_multimodal/09_vision_inputs.py
+  03_multimodal/10_audio_transcription.py
+  03_multimodal/11_document_understanding.py
 )
 
 # 1. Virtual environment + dependencies

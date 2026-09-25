@@ -44,6 +44,7 @@ Any [model string LiteLLM supports](https://docs.litellm.ai/docs/providers) work
 ./run.sh 01_prompt_engineering/01_instruction_context_query.py   # or by path
 ./run.sh 5 injection     # extra args are passed to the program
 ./run.sh 8 --offline     # runs without an API key
+./run.sh 9 photo.png     # programs 9-11 accept your own image / audio / PDF
 ```
 
 `run.sh` sets up `.venv` and `.env` if they're missing. It stops with a message while `.env` still has the placeholder key.
@@ -75,6 +76,23 @@ python 01_prompt_engineering/01_instruction_context_query.py
 | 7 | `02_structured_outputs/07_function_calling.py` | When the model chooses a tool, parallel calls, and the full tool loop with error handling |
 | 8 | `02_structured_outputs/08_parse_and_validate.py` | Production parsing: extract → parse → validate (including business rules) → repair retry → fallback. `--offline` runs without an API key |
 
+### Part 3 — Multimodal inputs
+
+| # | Program | What it shows |
+|---|---------|---------------|
+| 9 | `03_multimodal/09_vision_inputs.py` | Image + text messages: vague vs precise questions, `detail` low vs high (accuracy vs tokens), several images in one request, and hallucination about things not in the image. Pass an image path to ask about your own |
+| 10 | `03_multimodal/10_audio_transcription.py` | A transcription pipeline: plain vs vocabulary-hinted transcripts, timestamps, chunked long audio, then transcript → structured meeting notes. Pass an audio path to use your own recording |
+| 11 | `03_multimodal/11_document_understanding.py` | Document AI: digital vs scanned PDFs, routing to text extraction or vision OCR, table extraction into a schema, business-rule validation, and sending the PDF file directly. Pass a PDF path to try your own |
+
+Programs 9–11 generate their sample images, audio and PDFs into `03_multimodal/samples/` (git-ignored), so the correct answers are known and each result is scored.
+They use three extra optional settings in `.env`:
+
+| Variable | Default | Used for |
+|----------|---------|----------|
+| `VISION_MODEL` | same as `MODEL` | programs 9 and 11; must accept images |
+| `AUDIO_MODEL` | `whisper-1` (`litellm_proxy/whisper-1` when `MODEL` uses the proxy) | program 10 transcription |
+| `TTS_MODEL` | `tts-1` (`litellm_proxy/tts-1` when `MODEL` uses the proxy) | generating program 10's sample audio, once |
+
 Each file ends with **Exercises**: small changes to try, with a question to answer about the result.
 
 ## Project layout
@@ -84,7 +102,8 @@ common.py                  shared chat()/ask() helpers; reads MODEL from .env
 run.sh                     setup + runner script
 01_prompt_engineering/     programs 1–5
 02_structured_outputs/     programs 6–8
-requirements.txt           litellm, pydantic, python-dotenv
+03_multimodal/             programs 9–11 (samples/ is generated)
+requirements.txt           litellm, pydantic, python-dotenv, pillow, pypdf, fpdf2
 .env.example               template for .env
 ```
 
@@ -95,6 +114,8 @@ requirements.txt           litellm, pydantic, python-dotenv
 | `AuthenticationError` | The key in `.env` is missing or wrong |
 | `NotFoundError` / model not found | Change `MODEL` to a model your account can use |
 | `ModuleNotFoundError: litellm` | Use `./run.sh` or `source .venv/bin/activate` first |
+| `ModuleNotFoundError: PIL` / `pypdf` / `fpdf` | Existing `.venv` predates programs 9–11: run `.venv/bin/pip install -r requirements.txt` |
+| Program 10 fails with model not found | Set `AUDIO_MODEL` / `TTS_MODEL` in `.env` to names your provider or proxy has |
 | `RateLimitError` | Wait and retry, or use a model with higher limits |
 
 ## Notes
